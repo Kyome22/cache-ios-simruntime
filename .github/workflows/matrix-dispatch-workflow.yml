@@ -1,0 +1,74 @@
+name: Dispatch Workflow (iOS 13.7, 14.5)
+
+on:
+  workflow_dispatch:
+
+env:
+  DEVELOPER_DIR: "/Applications/Xcode_13.2.1.app/Contents/Developer"
+  RUNTIMES_DIR: "/Library/Developer/CoreSimulator/Profiles/Runtimes"
+
+jobs:
+  setup-ios:
+    name: Setup iOS 13.7 & 14.5 to Xcode 13.2.1
+    runs-on: macos-11
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ios: [13.7, 14.5]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache simruntime
+        id: cache-simruntime
+        uses: actions/cache@v2
+        with:
+          path: ios_${{ matrix.ios }}_simruntime.zip
+          key: ${{ runner.os }}-${{ matrix.ios }}-simruntime
+
+      - name: Install simruntime
+        if: steps.cache-simruntime.outputs.cache-hit != 'true'
+        run: |
+          xcversion simulators --install='iOS ${{ matrix.ios }}'
+          ls -d ${RUNTIMES_DIR}/* | xargs -Ipath du -s -m "path"
+
+      - name: Zip simruntime
+        if: steps.cache-simruntime.outputs.cache-hit != 'true'
+        working-directory: ${{ env.RUNTIMES_DIR }}
+        run: |
+          ls -1 -d * | head -n 1 | \
+          xargs -Ipath zip -r -9 ${{ github.workspace }}/ios_${{ matrix.ios }}_simruntime.zip "path"
+
+  look-up-list:
+    name: Look up simulators list
+    runs-on: macos-11
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        ios: [13.7, 14.5]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache simruntime
+        id: cache-simruntime
+        uses: actions/cache@v2
+        with:
+          path: ios_${{ matrix.ios }}_simruntime.zip
+          key: ${{ runner.os }}-${{ matrix.ios }}-simruntime
+
+      - name: Exit if cache does not exist
+        if: steps.cache-simruntime.outputs.cache-hit != 'true'
+        run: exit 1
+
+      - name: Unzip simruntime
+        run: |
+          sudo mkdir -p ${RUNTIMES_DIR}
+          sudo unzip ios_${{ matrix.ios }}_simruntime.zip -d ${RUNTIMES_DIR}
+
+      - name: Look up simulators
+        run: xcrun xctrace list devices 2>&1 | grep -v Apple
