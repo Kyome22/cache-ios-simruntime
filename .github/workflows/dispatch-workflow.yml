@@ -1,0 +1,49 @@
+name: Dispatch Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-ios-14:
+    name: Setup iOS 14.5 to Xcode 13.2.1
+    runs-on: macos-11
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: "/Applications/Xcode_13.2.1.app/Contents/Developer"
+      RUNTIMES_DIR: "/Library/Developer/CoreSimulator/Profiles/Runtimes"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache simruntime
+        id: cache-simruntime
+        uses: actions/cache@v2
+        with:
+          path: ios_14.5_simruntime.zip
+          key: ${{ runner.os }}-simruntime
+
+      - name: Unzip simruntime
+        if: steps.cache-simruntime.outputs.cache-hit == 'true'
+        run: |
+          sudo mkdir -p ${RUNTIMES_DIR}
+          sudo unzip ios_14.5_simruntime.zip -d ${RUNTIMES_DIR}
+
+      - name: Install simruntime
+        if: steps.cache-simruntime.outputs.cache-hit != 'true'
+        run: |
+          xcversion simulators --install='iOS 14.5'
+          ls -d ${RUNTIMES_DIR}/* | xargs -Ipath du -s -m "path"
+
+      - name: List up simulators
+        run: |
+          xcrun xctrace list devices 2>&1 | \
+          grep -v Apple | \
+          sed -r "s/Simulator //g"
+
+      - name: Zip simruntime
+        if: steps.cache-simruntime.outputs.cache-hit != 'true'
+        working-directory: ${{ env.RUNTIMES_DIR }}
+        run: |
+          ls -1 -d * | head -n 1 | \
+          xargs -Ipath zip -r ${{ github.workspace }}/ios_14.5_simruntime.zip "path"
