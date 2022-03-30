@@ -11,7 +11,7 @@ jobs:
   setup-ios:
     name: Setup iOS 13.7 & 14.5 to Xcode 13.2.1
     runs-on: macos-11
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -39,12 +39,13 @@ jobs:
         working-directory: ${{ env.RUNTIMES_DIR }}
         run: |
           ls -1 -d * | head -n 1 | \
-          xargs -Ipath zip -r -9 ${{ github.workspace }}/ios_${{ matrix.ios }}_simruntime.zip "path"
+          xargs -Ipath zip -r -q -7 ${{ github.workspace }}/ios_${{ matrix.ios }}_simruntime.zip "path"
 
   look-up-list:
     name: Look up simulators list
     runs-on: macos-11
     timeout-minutes: 15
+    needs: [setup-ios]
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +69,7 @@ jobs:
       - name: Unzip simruntime
         run: |
           sudo mkdir -p ${RUNTIMES_DIR}
-          sudo unzip ios_${{ matrix.ios }}_simruntime.zip -d ${RUNTIMES_DIR}
+          sudo unzip -q ios_${{ matrix.ios }}_simruntime.zip -d ${RUNTIMES_DIR}
 
       - name: Look up simulators
         run: xcrun xctrace list devices 2>&1 | grep -v Apple
